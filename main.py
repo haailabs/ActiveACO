@@ -2,7 +2,8 @@ import numpy as np
 import random
 import pandas as pd
 import matplotlib.pyplot as plt
-def ant_colony_optimization(graph, num_ants=10, num_iterations=100, alpha=1.0, beta=2.0, evaporation_rate=0.5, pheromone_deposit=1.0):
+
+def ant_colony_optimization(graph, num_ants=10, alpha=1.0, beta=2.0, evaporation_rate=0.5, pheromone_deposit=1.0, max_iterations=1000):
     N = graph.shape[0]
     pheromone = np.ones((N, N))
     best_path = None
@@ -17,7 +18,7 @@ def ant_colony_optimization(graph, num_ants=10, num_iterations=100, alpha=1.0, b
         probabilities /= probabilities.sum()
         return np.random.choice(available_nodes, p=probabilities)
 
-    for _ in range(num_iterations):
+    for _ in range(max_iterations):
         all_paths = []
         all_lengths = []
         for _ in range(num_ants):
@@ -42,7 +43,7 @@ def ant_colony_optimization(graph, num_ants=10, num_iterations=100, alpha=1.0, b
     return best_path, best_path_length
 
 # ACO with active inference
-def ant_colony_optimization_active_inference(graph, num_ants=10, num_iterations=100, alpha=1.0, beta=2.0, evaporation_rate=0.5, pheromone_deposit=1.0, free_energy_threshold=0.1):
+def ant_colony_optimization_active_inference(graph, num_ants=10, alpha=1.0, beta=2.0, evaporation_rate=0.5, pheromone_deposit=1.0, free_energy_threshold=0.1, max_iterations=1000):
     N = graph.shape[0]
     pheromone = np.ones((N, N))
     best_path = None
@@ -57,26 +58,26 @@ def ant_colony_optimization_active_inference(graph, num_ants=10, num_iterations=
         probabilities /= probabilities.sum()
         return np.random.choice(available_nodes, p=probabilities)
 
-    def free_energy(belief_in_cycle):
-        if belief_in_cycle > 0 and belief_in_cycle < 1:
-            uncertainty = -belief_in_cycle * np.log(belief_in_cycle) - (1 - belief_in_cycle) * np.log(1 - belief_in_cycle)
+    def free_energy(belief_in_tour):
+        if belief_in_tour > 0 and belief_in_tour < 1:
+            uncertainty = -belief_in_tour * np.log(belief_in_tour) - (1 - belief_in_tour) * np.log(1 - belief_in_tour)
         else:
             uncertainty = 0
-        expected_energy = -np.log(belief_in_cycle) if belief_in_cycle > 0 else float('inf')
+        expected_energy = -np.log(belief_in_tour) if belief_in_tour > 0 else float('inf')
         return expected_energy + uncertainty
 
-    for _ in range(num_iterations):
+    for _ in range(max_iterations):
         all_paths = []
         all_lengths = []
         for _ in range(num_ants):
             path = [random.randint(0, N - 1)]
             available_nodes = list(set(range(N)) - set(path))
-            belief_in_cycle = 0.5
+            belief_in_tour = 0.5
             while available_nodes:
                 next_node = choose_next_node(available_nodes, path[-1])
                 path.append(next_node)
                 available_nodes.remove(next_node)
-                if free_energy(belief_in_cycle) < free_energy_threshold:
+                if free_energy(belief_in_tour) < free_energy_threshold:
                     break
             path_length = calculate_path_length(path)
             all_paths.append(path)
@@ -91,8 +92,6 @@ def ant_colony_optimization_active_inference(graph, num_ants=10, num_iterations=
             pheromone[path[-1], path[0]] += pheromone_deposit / length
 
     return best_path, best_path_length
-
-
 
 # Generate multiple random symmetric graphs
 def generate_random_graphs(num_graphs, num_nodes):
@@ -122,7 +121,7 @@ def compare_methods(graphs):
 
 # Specify number of graphs and nodes per graph
 num_graphs = 10
-num_nodes = 20
+num_nodes = 50
 
 # Generate the graphs
 graphs = generate_random_graphs(num_graphs, num_nodes)
@@ -130,9 +129,6 @@ graphs = generate_random_graphs(num_graphs, num_nodes)
 # Compare the methods
 results = compare_methods(graphs)
 print(results)
-
-
-
 
 # After obtaining results
 results_df = pd.DataFrame(results)
