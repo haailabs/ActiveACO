@@ -122,7 +122,7 @@ def compare_methods(graphs):
 
 # Specify number of graphs and nodes per graph
 num_graphs = 10
-num_nodes = 100
+num_nodes = 50
 
 # Generate the graphs
 graphs = generate_random_graphs(num_graphs, num_nodes)
@@ -130,10 +130,6 @@ graphs = generate_random_graphs(num_graphs, num_nodes)
 # Compare the methods
 results = compare_methods(graphs)
 print(results)
-
-
-
-
 # After obtaining results
 results_df = pd.DataFrame(results)
 print(results_df)
