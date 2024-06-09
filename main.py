@@ -148,3 +148,19 @@ plt.ylabel('Path Length')
 plt.legend()
 plt.grid(True)
 plt.show()
+
+# Perform statistical tests
+from scipy import stats
+
+# Paired t-test
+t_stat, p_value = stats.ttest_rel(results_df['basic_path_length'], results_df['ai_path_length'])
+print(f"Paired T-test: T-statistic = {t_stat}, P-value = {p_value}")
+
+# Wilcoxon signed-rank test
+w_stat, w_p_value = stats.wilcoxon(results_df['basic_path_length'], results_df['ai_path_length'])
+print(f"Wilcoxon Signed-Rank Test: W-statistic = {w_stat}, P-value = {w_p_value}")
+
+# Mann-Whitney U test (if treating as independent samples)
+u_stat, u_p_value = stats.mannwhitneyu(results_df['basic_path_length'], results_df['ai_path_length'])
+print(f"Mann-Whitney U Test: U-statistic = {u_stat}, P-value = {u_p_value}")
+
