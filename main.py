@@ -207,15 +207,18 @@ def analyze_graph_characteristics(graphs, results):
     
     for i, graph in enumerate(graphs):
         # Calculate graph characteristics
-        avg_edge_weight = np.mean(graph[graph > 0])
-        std_edge_weight = np.std(graph[graph > 0])
-        density = np.count_nonzero(graph) / (graph.shape[0] * (graph.shape[0] - 1))
+        total_edges = np.sum(graph > 0)
+        total_possible_edges = graph.shape[0] * (graph.shape[0] - 1)
+        density = total_edges / total_possible_edges if total_possible_edges > 0 else 0
+        
+        avg_edge_weight = np.mean(graph[graph > 0]) if total_edges > 0 else 0
+        std_edge_weight = np.std(graph[graph > 0]) if total_edges > 0 else 0
         
         # Calculate the coefficient of variation of edge weights
         cv_edge_weight = std_edge_weight / avg_edge_weight if avg_edge_weight > 0 else 0
         
         # Calculate the range of edge weights
-        edge_weight_range = np.max(graph) - np.min(graph[graph > 0])
+        edge_weight_range = np.max(graph) - np.min(graph[graph > 0]) if total_edges > 0 else 0
         
         characteristics.append({
             'graph_id': i,
@@ -229,11 +232,17 @@ def analyze_graph_characteristics(graphs, results):
     
     df = pd.DataFrame(characteristics)
     
+    # Print debugging information
+    print("\nDebugging Information:")
+    print(f"Number of graphs: {len(graphs)}")
+    print(f"Density statistics: min={df['density'].min()}, max={df['density'].max()}, mean={df['density'].mean()}, std={df['density'].std()}")
+    print(f"Improvement statistics: min={df['improvement'].min()}, max={df['improvement'].max()}, mean={df['improvement'].mean()}, std={df['improvement'].std()}")
+    
     # Calculate correlations
     correlations = {}
     for column in df.columns:
         if column not in ['graph_id', 'improvement']:
-            correlation, p_value = spearmanr(df[column], df['improvement'], nan_policy='omit')
+            correlation, p_value = spearmanr(df[column], df['improvement'])
             correlations[column] = {'correlation': correlation, 'p_value': p_value}
     
     # Print correlations
@@ -260,7 +269,6 @@ def analyze_graph_characteristics(graphs, results):
     plt.show()
     
     return df, correlations
-
 def perform_statistical_tests(results_df):
     # Paired t-test
     t_stat, p_value = stats.ttest_rel(results_df['basic_path_length'], results_df['ai_path_length'])
@@ -275,8 +283,8 @@ def perform_statistical_tests(results_df):
     print(f"Mann-Whitney U Test: U-statistic = {u_stat}, P-value = {u_p_value}")
 
 if __name__ == "__main__":
-    num_graphs = 100
-    num_nodes = 50
+    num_graphs = 50
+    num_nodes = 100
 
     print("Generating random graphs...")
     graphs = generate_random_graphs(num_graphs, num_nodes)
@@ -314,4 +322,3 @@ if __name__ == "__main__":
     print("\nPerforming statistical tests:")
     perform_statistical_tests(results_df)
     graph_analysis_df, correlations = analyze_graph_characteristics(graphs, results)
-    
