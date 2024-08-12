@@ -4,7 +4,20 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy import stats
 from scipy.stats import spearmanr
-
+import time
+def nearest_neighbor_tsp(graph):
+    n = len(graph)
+    tour = [0]
+    unvisited = set(range(1, n))
+    while unvisited:
+        last = tour[-1]
+        next_node = min(unvisited, key=lambda x: graph[last][x])
+        tour.append(next_node)
+        unvisited.remove(next_node)
+    tour.append(tour[0])
+    def calculate_tour_distance(graph, tour):
+        return sum(graph[tour[i]][tour[i+1]] for i in range(len(tour)-1))
+    return tour, calculate_tour_distance(graph, tour)
 
 def ant_colony_optimization(graph, num_ants=10, num_iterations=100, alpha=1.0, beta=2.0, evaporation_rate=0.5, pheromone_deposit=1.0):
     N = graph.shape[0]
@@ -108,6 +121,40 @@ def improved_aco_active_inference(graph, num_ants=10, num_iterations=100, alpha=
             pheromone[best_path[i], best_path[i + 1]] += best_deposit
 
     return best_path, best_path_length
+def particle_swarm_optimization(graph, num_particles=30, num_iterations=100, w=0.5, c1=1, c2=2):
+    def create_solution():
+        return np.random.permutation(len(graph))
+    
+    def calculate_fitness(solution):
+        return sum(graph[solution[i], solution[(i+1) % len(solution)]] for i in range(len(solution)))
+    
+    particles = [create_solution() for _ in range(num_particles)]
+    velocities = [np.zeros_like(particles[0]) for _ in range(num_particles)]
+    personal_best = particles.copy()
+    global_best = min(particles, key=calculate_fitness)
+    
+    for _ in range(num_iterations):
+        for i in range(num_particles):
+            r1, r2 = np.random.rand(2)
+            velocities[i] = (w * velocities[i] + 
+                             c1 * r1 * (personal_best[i] - particles[i]) + 
+                             c2 * r2 * (global_best - particles[i]))
+            
+            new_position = particles[i] + velocities[i]
+            new_position = np.argsort(new_position)
+            
+            if calculate_fitness(new_position) < calculate_fitness(particles[i]):
+                particles[i] = new_position
+                if calculate_fitness(new_position) < calculate_fitness(personal_best[i]):
+                    personal_best[i] = new_position
+                    if calculate_fitness(new_position) < calculate_fitness(global_best):
+                        global_best = new_position
+    
+    return global_best, calculate_fitness(global_best)
+
+import numpy as np
+
+
 def generate_random_graphs(num_graphs, num_nodes):
     graphs = []
     for _ in range(num_graphs):
@@ -191,134 +238,89 @@ def compare_methods(graphs):
     for i, graph in enumerate(graphs):
         print(f"Processing graph {i+1}/{len(graphs)}")
         
+        start_time = time.time()
+        best_path_NN, best_path_length_NN = nearest_neighbor_tsp(graph)
+        nn_time = time.time() - start_time
+        
+        start_time = time.time()
         best_path_basic, best_path_length_basic = ant_colony_optimization(graph)
-        best_path_ai, best_path_length_ai = improved_aco_active_inference(graph)
+        basic_aco_time = time.time() - start_time
+        
+        start_time = time.time()
+        best_path_ai_aco, best_path_length_ai_aco = improved_aco_active_inference(graph)
+        ai_aco_time = time.time() - start_time
+
 
         results.append({
             'graph_id': i,
-            'basic_path_length': best_path_length_basic,
-            'ai_path_length': best_path_length_ai,
-            'improvement': (best_path_length_basic - best_path_length_ai) / best_path_length_basic * 100
+            'num_nodes': graph.shape[0],
+            'NN_length': best_path_length_NN,
+            'basic_aco_length': best_path_length_basic,
+            'ai_aco_length': best_path_length_ai_aco,
+          
+            'aco_improvement': (best_path_length_basic - best_path_length_ai_aco) / best_path_length_basic * 100,
+            'nn_time': nn_time,
+            'basic_aco_time': basic_aco_time,
+            'ai_aco_time': ai_aco_time,
+
         })
     return results
 
-def analyze_graph_characteristics(graphs, results):
-    characteristics = []
-    
-    for i, graph in enumerate(graphs):
-        # Calculate graph characteristics
-        total_edges = np.sum(graph > 0)
-        total_possible_edges = graph.shape[0] * (graph.shape[0] - 1)
-        density = total_edges / total_possible_edges if total_possible_edges > 0 else 0
-        
-        avg_edge_weight = np.mean(graph[graph > 0]) if total_edges > 0 else 0
-        std_edge_weight = np.std(graph[graph > 0]) if total_edges > 0 else 0
-        
-        # Calculate the coefficient of variation of edge weights
-        cv_edge_weight = std_edge_weight / avg_edge_weight if avg_edge_weight > 0 else 0
-        
-        # Calculate the range of edge weights
-        edge_weight_range = np.max(graph) - np.min(graph[graph > 0]) if total_edges > 0 else 0
-        
-        characteristics.append({
-            'graph_id': i,
-            'avg_edge_weight': avg_edge_weight,
-            'std_edge_weight': std_edge_weight,
-            'cv_edge_weight': cv_edge_weight,
-            'density': density,
-            'edge_weight_range': edge_weight_range,
-            'improvement': results[i]['improvement']
-        })
-    
-    df = pd.DataFrame(characteristics)
-    
-    # Print debugging information
-    print("\nDebugging Information:")
-    print(f"Number of graphs: {len(graphs)}")
-    print(f"Density statistics: min={df['density'].min()}, max={df['density'].max()}, mean={df['density'].mean()}, std={df['density'].std()}")
-    print(f"Improvement statistics: min={df['improvement'].min()}, max={df['improvement'].max()}, mean={df['improvement'].mean()}, std={df['improvement'].std()}")
-    
-    # Calculate correlations
-    correlations = {}
-    for column in df.columns:
-        if column not in ['graph_id', 'improvement']:
-            correlation, p_value = spearmanr(df[column], df['improvement'])
-            correlations[column] = {'correlation': correlation, 'p_value': p_value}
-    
-    # Print correlations
-    print("\nCorrelations with improvement:")
-    for char, values in correlations.items():
-        print(f"{char}: correlation = {values['correlation']:.4f}, p-value = {values['p_value']:.4f}")
-    
-    # Plotting
-    num_chars = len(correlations)
-    fig, axes = plt.subplots((num_chars + 1) // 2, 2, figsize=(15, 5 * ((num_chars + 1) // 2)))
-    axes = axes.ravel()
-    
-    for i, (column, values) in enumerate(correlations.items()):
-        axes[i].scatter(df[column], df['improvement'])
-        axes[i].set_xlabel(column)
-        axes[i].set_ylabel('Improvement (%)')
-        axes[i].set_title(f'{column} vs Improvement\nr={values["correlation"]:.2f}, p={values["p_value"]:.4f}')
-    
-    # Remove any unused subplots
-    for j in range(i + 1, len(axes)):
-        fig.delaxes(axes[j])
-    
-    plt.tight_layout()
-    plt.show()
-    
-    return df, correlations
 def perform_statistical_tests(results_df):
-    # Paired t-test
-    t_stat, p_value = stats.ttest_rel(results_df['basic_path_length'], results_df['ai_path_length'])
-    print(f"Paired T-test: T-statistic = {t_stat}, P-value = {p_value}")
+    print(f"Average NN path length: {results_df['NN_length'].mean()}")
+    
+    # ACO tests
+    t_stat_aco, p_value_aco = stats.ttest_rel(results_df['basic_aco_length'], results_df['ai_aco_length'])
+    print(f"ACO Paired T-test: T-statistic = {t_stat_aco}, P-value = {p_value_aco}")
 
-    # Wilcoxon signed-rank test
-    w_stat, w_p_value = stats.wilcoxon(results_df['basic_path_length'], results_df['ai_path_length'])
-    print(f"Wilcoxon Signed-Rank Test: W-statistic = {w_stat}, P-value = {w_p_value}")
+    w_stat_aco, w_p_value_aco = stats.wilcoxon(results_df['basic_aco_length'], results_df['ai_aco_length'])
+    print(f"ACO Wilcoxon Signed-Rank Test: W-statistic = {w_stat_aco}, P-value = {w_p_value_aco}")
 
-    # Mann-Whitney U test (if treating as independent samples)
-    u_stat, u_p_value = stats.mannwhitneyu(results_df['basic_path_length'], results_df['ai_path_length'])
-    print(f"Mann-Whitney U Test: U-statistic = {u_stat}, P-value = {u_p_value}")
+   
+  
+    # Time comparisons
+    t_stat_time_aco, p_value_time_aco = stats.ttest_rel(results_df['basic_aco_time'], results_df['ai_aco_time'])
+    print(f"ACO Computation Time Paired T-test: T-statistic = {t_stat_time_aco}, P-value = {p_value_time_aco}")
 
+
+def run_experiments(node_sizes, num_graphs):
+    all_results = []
+    for num_nodes in node_sizes:
+        print(f"\nRunning experiments for {num_nodes} nodes")
+        graphs = generate_random_graphs(num_graphs, num_nodes)
+        results = compare_methods(graphs)
+        all_results.extend(results)
+    
+    return pd.DataFrame(all_results)
 if __name__ == "__main__":
-    num_graphs = 50
-    num_nodes = 100
+    node_sizes = [25]
+    num_graphs = 50 # Number of graphs per node size
+    results_df = run_experiments(node_sizes, num_graphs)
 
-    print("Generating random graphs...")
-    graphs = generate_random_graphs(num_graphs, num_nodes)
+    print(f"\nResults summary (for {num_graphs} graphs per node size):")
+    summary = results_df.groupby('num_nodes').agg({
+        'NN_length': ['mean', 'std'],
+        'basic_aco_length': ['mean', 'std'],
+        'ai_aco_length': ['mean', 'std'],
+        'aco_improvement': ['mean', 'std'],
+        'nn_time': ['mean', 'std'],
+        'basic_aco_time': ['mean', 'std'],
+        'ai_aco_time': ['mean', 'std'],
+    })
 
-    print("Comparing methods...")
-    results = compare_methods(graphs)
+    # Set display options to show all rows and columns
+    pd.set_option('display.max_rows', None)
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.width', None)
+    pd.set_option('display.max_colwidth', None)
 
-    results_df = pd.DataFrame(results)
-    print("\nResults summary:")
-    print(results_df.describe())
+    print(summary)
 
-    plt.figure(figsize=(10, 6))
-    plt.scatter(results_df['basic_path_length'], results_df['ai_path_length'])
-    plt.plot([results_df['basic_path_length'].min(), results_df['basic_path_length'].max()], 
-             [results_df['basic_path_length'].min(), results_df['basic_path_length'].max()], 
-             'r--', label='y=x')
-    plt.xlabel('Basic ACO Path Length')
-    plt.ylabel('Improved ACO Path Length')
-    plt.title('Comparison of Basic ACO vs Improved ACO with Active Inference')
-    plt.legend()
-    plt.show()
+    # Reset display options to default (optional)
+    pd.reset_option('display.max_rows')
+    pd.reset_option('display.max_columns')
+    pd.reset_option('display.width')
+    pd.reset_option('display.max_colwidth')
 
-    plt.figure(figsize=(12, 6))
-    plt.plot(results_df['basic_path_length'], label='Basic ACO Path Length', marker='o')
-    plt.plot(results_df['ai_path_length'], label='Improved ACO Path Length', marker='x')
-    plt.title('Comparison of ACO and Improved ACO with Active Inference')
-    plt.xlabel('Graph Index')
-    plt.ylabel('Path Length')
-    plt.legend()
-    plt.grid(True)
-    plt.show()
-
-    avg_improvement = results_df['improvement'].mean()
-    print(f"\nAverage improvement: {avg_improvement:.2f}%")
     print("\nPerforming statistical tests:")
     perform_statistical_tests(results_df)
-    graph_analysis_df, correlations = analyze_graph_characteristics(graphs, results)
