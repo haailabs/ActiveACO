@@ -22,8 +22,8 @@ import pandas as pd
 import os
 
 if __name__ == "__main__":
-    node_sizes = [800]  # List of node sizes
-    num_graphs_list = [20]  # List of number of graphs per node size
+    node_sizes = [200]  # List of node sizes
+    num_graphs_list = [1000]  # List of number of graphs per node size
 
     for node_size in node_sizes:
         for num_graphs in num_graphs_list:
