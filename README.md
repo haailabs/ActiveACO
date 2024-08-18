@@ -1,11 +1,10 @@
 # Active ACO
 
 ## Overview
-This repository includes implementations of various optimization algorithms for the Traveling Salesman Problem (TSP), including:
+This repository includes implementations of various optimization algorithms for the Traveling Salesman Problem (TSP):
 - Nearest Neighbor TSP
 - Ant Colony Optimization (ACO)
 - Improved ACO with Active Inference
-- Particle Swarm Optimization (PSO)
 
 Active inference is based on the concept that perception is an active process, involving the minimization of free energy and continuous updating of beliefs based on environmental interactions. This project demonstrates how such concepts can improve traditional algorithms like ACO when applied to randomly generated graphs.
 
